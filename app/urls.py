@@ -6,8 +6,7 @@ from drf_yasg import openapi
 from .views import (
     RegisterUser, LoginUser,
     ProductCreateView, UpdateDelateProductView,
-    TranssactionView, UpdateDeleteTransactionView,
-    ProductLogListView,
+    TranssactionView, ProductLogListView
 )
 
 
@@ -31,7 +30,6 @@ urlpatterns = [
     path('products/<int:pk>/', UpdateDelateProductView.as_view()),
     # Crud methods on transaction
     path('transactions/', TranssactionView.as_view()),
-    path('transactions/<int:pk>/', UpdateDeleteTransactionView.as_view()),
     # Logs
     path('logs/', ProductLogListView.as_view()),
 

@@ -8,7 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
-
+from .permissions import IsOwnerOfProduct
 # Create your views here.
 
 # Authrntications
@@ -19,14 +19,14 @@ class RegisterUser(GenericAPIView):
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            username = serializer.validated_data['username']
-            email = serializer.validated_data['email']
-            if User.objects.filter(username=username).exists():
-                return Response({"msg": "This username already exists!!!"}, status=status.HTTP_400_BAD_REQUEST)
-            elif User.objects.filter(email=email).exists():
-                return Response({"msg":"Thsi email is already exists!!!"}, status=status.HTTP_400_BAD_REQUEST)
-            serializer.save()
-            return Response({"msg": f"This user ({username}) registered!!!"}, status=status.HTTP_201_CREATED)
+            user = serializer.save()
+            refresh = RefreshToken.for_user(user)
+            access = refresh.access_token
+            return Response({
+                "msg": f"This user ({user.username}) registered!!!",
+                "refresh": str(refresh),
+                "access": str(access),
+            }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class LoginUser(GenericAPIView):
@@ -49,11 +49,10 @@ class LoginUser(GenericAPIView):
 
 class ProductCreateView(ListCreateAPIView):
     serializer_class  = ProductSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwnerOfProduct]
 
     def get_queryset(self):
-        return Product.objects.filter(owner=self.request.user)
-    
+        return Product.objects.all()
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -65,10 +64,10 @@ class ProductCreateView(ListCreateAPIView):
 
 class UpdateDelateProductView(RetrieveUpdateDestroyAPIView):
     serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwnerOfProduct]
 
     def get_queryset(self):
-        return Product.objects.filter(owner=self.request.user)
+        return Product.objects.all()
 
     def perform_update(self, serializer):
         product = serializer.save()
@@ -116,29 +115,6 @@ class TranssactionView(ListCreateAPIView):
             product=transaction.product,
             action = 'sale'
         )
-    
-class UpdateDeleteTransactionView(RetrieveUpdateDestroyAPIView):
-    serializer_class = TransactionSerializer
-    permission_classes  = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Transaction.objects.filter(seller=self.request.user)
-
-
-    def perform_update(self, serializer):
-        transaction = serializer.save()
-        ProductLog.objects.create(
-            user=self.request.user,
-            product=transaction.product,
-            action = 'update'
-        )
-    def perform_destroy(self, instance):
-        ProductLog.objects.create(
-            user=self.request.user,
-            product=instance.product,
-            action = 'delete'
-        )
-        instance.delete()
 
 
 # Log
